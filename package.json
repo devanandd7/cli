@@ -1,0 +1,22 @@
+{
+  "name": "gemini-cli-agent",
+  "version": "1.0.0",
+  "description": "CLI agent using Google's Gemini AI for project management",
+  "main": "gemini-cli.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node gemini-cli.js",
+    "dev": "nodemon gemini-cli.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.1.0",
+    "chokidar": "^3.5.3",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

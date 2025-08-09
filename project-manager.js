@@ -25,6 +25,7 @@ class ProjectManager {
         success: true, 
         message: `Created new ${projectType} project plan`,
         plan: this.currentPlan
+        
       };
     } catch (error) {
       console.error('Error in initializeProject:', error);

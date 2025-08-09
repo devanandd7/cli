@@ -4,6 +4,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const ProjectManager = require('./project-manager');
 const tools = require('./tools');
 const path = require('path');
+const fs = require('fs');
 
 const GOOGLE_API_KEY = "AIzaSyBWHT84y5FNDG6Pjikc7x27vjMYeGofyS0";
 // Initialize Google Gemini AI
@@ -218,20 +219,22 @@ function getProjectContext() {
   };
 }
 
-// Function to create directory structure
+// Function to create directory structure and write file contents
 async function createProjectStructure(structure, basePath = '') {
   const results = [];
   
   for (const item of structure) {
-    const itemPath = path.join(basePath, item);
+    const itemPath = path.join(basePath, item.path || item);
     const fullPath = path.resolve(process.cwd(), itemPath);
     
     try {
-      if (item.endsWith('/')) {
+      if (item.endsWith('/') || (item.type && item.type === 'directory')) {
         // It's a directory
         if (!tools.existsSync(fullPath).success) {
           tools.mkdirSync(fullPath, { recursive: true });
-          results.push(`📁 Created directory: ${itemPath}`);
+          results.push({ type: 'dir', path: itemPath, status: 'created' });
+        } else {
+          results.push({ type: 'dir', path: itemPath, status: 'exists' });
         }
       } else {
         // It's a file
@@ -239,13 +242,64 @@ async function createProjectStructure(structure, basePath = '') {
         if (!tools.existsSync(dirPath).success) {
           tools.mkdirSync(dirPath, { recursive: true });
         }
-        if (!tools.existsSync(fullPath).success) {
+        
+        // Check if file exists and has content
+        const fileExists = tools.existsSync(fullPath).exists;
+        const shouldWriteContent = item.content && (item.overwrite || !fileExists);
+        
+        if (shouldWriteContent) {
+          // Write file with content
+          const writeResult = tools.writeFileSync(fullPath, item.content);
+          if (writeResult.success) {
+            results.push({ 
+              type: 'file', 
+              path: itemPath, 
+              status: 'created', 
+              hasContent: true,
+              content: item.content
+            });
+          } else {
+            throw new Error(`Failed to write content: ${writeResult.error}`);
+          }
+        } else if (!fileExists) {
+          // Create empty file if it doesn't exist
           tools.writeFileSync(fullPath, '');
-          results.push(`📄 Created file: ${itemPath}`);
+          results.push({ 
+            type: 'file', 
+            path: itemPath, 
+            status: 'created',
+            hasContent: false
+          });
+        } else {
+          // File exists and we're not overwriting
+          results.push({ 
+            type: 'file', 
+            path: itemPath, 
+            status: 'exists',
+            hasContent: true
+          });
+        }
+        
+        // Verify file content if it was supposed to have content
+        if (item.content && !shouldWriteContent) {
+          const { success: readSuccess, content: existingContent } = tools.readFileSync(fullPath);
+          if (readSuccess && existingContent !== item.content) {
+            results.push({
+              type: 'warning',
+              message: `Content mismatch for ${itemPath}. File exists with different content.`,
+              expected: item.content,
+              actual: existingContent
+            });
+          }
         }
       }
     } catch (error) {
-      results.push(`❌ Failed to create ${itemPath}: ${error.message}`);
+      results.push({ 
+        type: 'error',
+        path: itemPath,
+        message: `Failed to process: ${error.message}`,
+        error: error.stack
+      });
     }
   }
   
@@ -304,12 +358,49 @@ async function executeNextTask() {
       }
     }
     
-    // If this is the first task, create the project structure
-    if (currentTaskIndex === 0 && structure.length > 0) {
-      console.log('\n🚀 Setting up project structure...');
+    // If this is the first task, create the project structure and write file contents
+    if (currentTaskIndex === 0) {
+      console.log('\n🚀 Setting up project structure and writing files...');
       const results = await createProjectStructure(structure);
-      results.forEach(msg => console.log(`  ${msg}`));
-      console.log('✅ Project structure created\n');
+      
+      // Process and log results
+      let hasErrors = false;
+      results.forEach(result => {
+        switch (result.type) {
+          case 'dir':
+            console.log(`  ${result.status === 'created' ? '📁 Created' : '📁 Exists'}: ${result.path}`);
+            break;
+          case 'file':
+            if (result.hasContent) {
+              console.log(`  📝 ${result.status === 'created' ? 'Wrote' : 'Verified'}: ${result.path}`);
+            } else {
+              console.log(`  📄 ${result.status === 'created' ? 'Created' : 'Exists'}: ${result.path} (empty)`);
+            }
+            break;
+          case 'warning':
+            console.log(`  ⚠️  Warning: ${result.message}`);
+            console.log(`     Expected: ${result.expected?.substring(0, 50)}...`);
+            console.log(`     Actual: ${result.actual?.substring(0, 50)}...`);
+            break;
+          case 'error':
+            console.error(`  ❌ Error: ${result.message}`);
+            console.error(`     ${result.error}`);
+            hasErrors = true;
+            break;
+        }
+      });
+      
+      if (hasErrors) {
+        return '❌ Encountered errors while setting up the project. Please check the logs above.';
+      }
+      
+      console.log('✅ Project structure and files created successfully\n');
+      
+      // If there are no tasks, we're done
+      if (tasks.length === 0) {
+        isBuilding = false;
+        return '✅ Project setup complete with no additional tasks.';
+      }
     }
     
     // Process tasks
