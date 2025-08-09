@@ -1,0 +1,36 @@
+# Todo Application Project
+
+## Project Structure
+- public/
+- public/index.html
+- src/
+- src/components/
+- src/components/TodoList.js
+- src/components/TodoItem.js
+- src/components/AddTodo.js
+- src/components/Header.js
+- src/components/Footer.js
+- src/App.js
+- src/index.js
+- src/index.css
+- package.json
+- README.md
+- .gitignore
+
+## Tasks
+- [x] Initialize React application
+- [ ] Set up project structure
+- [ ] Install required dependencies (react-icons, uuid)
+- [ ] Create TodoList component
+- [ ] Create TodoItem component
+- [ ] Create AddTodo component
+- [ ] Implement state management for todos
+- [ ] Add functionality to add new todos
+- [ ] Add functionality to toggle todo completion
+- [ ] Add functionality to delete todos
+- [ ] Add filtering (All/Active/Completed)
+- [ ] Add local storage persistence
+- [ ] Style the application
+- [ ] Add responsive design
+- [ ] Write tests
+- [ ] Deploy the application
